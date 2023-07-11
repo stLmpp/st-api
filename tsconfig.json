@@ -13,6 +13,13 @@
     "noImplicitOverride": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "resolveJsonModule": true
-  }
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@libs/common": ["libs/common/index.js"],
+      "@st-api/core": ["packages/core/index.js"],
+      "@st-api/firebase": ["packages/firebase/index.js"]
+    }
+  },
+  "exclude": ["dist"]
 }

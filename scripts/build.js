@@ -5,38 +5,36 @@ import { join } from 'node:path';
 import rootPackageJson from '../package.json' assert { type: 'json' };
 import { build as tsupBuild } from 'tsup';
 import fastGlob from 'fast-glob';
+import { objectKeys } from '../libs/common/index.js';
 
 await rm('dist', { recursive: true, force: true });
 
 const PACKAGES_PATH = 'packages';
 const DIST_PATH = 'dist';
 const PACKAGE_SCOPE = '@st-api';
-const ROOT_PACKAGE_JSON_DEPENDENCIES = Object.keys(
-  rootPackageJson.dependencies,
-);
-
-const packages = await readdir(PACKAGES_PATH);
+const ROOT_PACKAGE_JSON_DEPENDENCIES = objectKeys(rootPackageJson.dependencies);
+const PACKAGES = await readdir(PACKAGES_PATH);
 
 /**
  *
  * @param {string} packageName
- * @param {string[]} dependencies
- * @returns {Promise<string[]>}
+ * @returns {Promise<Array<keyof typeof rootPackageJson['dependencies']>>}
  */
-async function getDependenciesUsed(packageName, dependencies) {
+async function getDependenciesUsed(packageName) {
   const files = await fastGlob(`${PACKAGES_PATH}/${packageName}/**/*.js`);
   /**
-   * @type {string[]}
+   * @type {Array<keyof typeof rootPackageJson['dependencies']>}
    */
   const usedDependencies = [];
+  // TODO improve this
   for (const file of files) {
     const fileContent = await readFile(file, 'utf-8');
-    for (const dependency of dependencies) {
-      if (fileContent.includes(dependency)) {
+    for (const dependency of ROOT_PACKAGE_JSON_DEPENDENCIES) {
+      if (fileContent.includes(`'${dependency}'`)) {
         usedDependencies.push(dependency);
       }
     }
-    if (dependencies.length === usedDependencies.length) {
+    if (ROOT_PACKAGE_JSON_DEPENDENCIES.length === usedDependencies.length) {
       break;
     }
   }
@@ -50,10 +48,7 @@ async function getDependenciesUsed(packageName, dependencies) {
 async function buildPackage(packageName) {
   const srcPath = join(PACKAGES_PATH, packageName);
   const distPath = join(DIST_PATH, packageName);
-  const promises = [
-    copy(join(srcPath, 'index.js'), join(distPath, 'index.js')),
-    copy(join(srcPath, 'src'), join(distPath, 'src')),
-  ];
+  const promises = [];
   const files = ['index.js', 'src'];
   const isCli = packageName === 'cli';
   if (isCli) {
@@ -82,17 +77,13 @@ async function buildPackage(packageName) {
   };
   if (isCli) {
     packageJson.bin = {
-      'st-api': 'bin/index.js',
+      stapi: 'bin/index.js',
     };
   }
-  const dependencies = await getDependenciesUsed(
-    packageName,
-    ROOT_PACKAGE_JSON_DEPENDENCIES,
-  );
+  const dependencies = await getDependenciesUsed(packageName);
   packageJson.dependencies = {};
   for (const dependency of dependencies) {
     packageJson.dependencies[dependency] =
-      // @ts-ignore
       rootPackageJson.dependencies[dependency];
   }
   promises.push(
@@ -101,22 +92,29 @@ async function buildPackage(packageName) {
       JSON.stringify(packageJson, null, 2),
     ),
   );
-  promises.push(
-    tsupBuild({
-      dts: {
-        only: true,
-      },
-      entry: { index: join(srcPath, 'index.js') },
-      outDir: distPath,
-      format: 'esm',
-      platform: 'node',
-      target: 'node18',
-      silent: true,
-      name: packageName,
-      splitting: false,
-    }),
-  );
+  /**
+   * @type {import('tsup').Options}
+   */
+  const options = {
+    dts: true,
+    bundle: true,
+    outDir: distPath,
+    format: 'esm',
+    platform: 'node',
+    target: 'esnext',
+    sourcemap: true,
+    silent: true,
+    name: packageName,
+    splitting: false,
+    external: dependencies.map(String),
+    minify: true,
+  };
+  options.entry = { index: join(srcPath, 'index.js') };
+  if (isCli) {
+    options.entry['bin/index'] = join(srcPath, 'bin', 'index.js');
+  }
+  promises.push(tsupBuild(options));
   await Promise.all(promises);
 }
 
-await Promise.all(packages.map((packageName) => buildPackage(packageName)));
+await Promise.all(PACKAGES.map((packageName) => buildPackage(packageName)));

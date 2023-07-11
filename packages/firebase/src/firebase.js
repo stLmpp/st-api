@@ -1,4 +1,4 @@
-import { FactoryProvider, InjectionToken, ROOT_INJECTOR } from '@stlmpp/di';
+import { FactoryProvider, InjectionToken } from '@stlmpp/di';
 import { initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 
@@ -7,11 +7,17 @@ import { connectAuthEmulator, getAuth } from 'firebase/auth';
  * @type {InjectionToken<import('firebase/app').FirebaseApp>}
  */
 export const FIREBASE_APP = new InjectionToken('FirebaseApp');
+
+/**
+ * @type {InjectionToken<import('firebase/auth').Auth>}
+ */
+export const FIREBASE_AUTH = new InjectionToken('FirebaseAuth');
+
 /**
  * @type {import('firebase/app').FirebaseApp | null}
  */
 let firebaseApp = null;
-const FIREBASE_APP_PROVIDER = new FactoryProvider(FIREBASE_APP, () => {
+export const FIREBASE_APP_PROVIDER = new FactoryProvider(FIREBASE_APP, () => {
   if (!firebaseApp) {
     /**
      * @type {import('firebase/app').FirebaseOptions}
@@ -21,12 +27,7 @@ const FIREBASE_APP_PROVIDER = new FactoryProvider(FIREBASE_APP, () => {
   }
   return firebaseApp;
 });
-
-/**
- * @type {InjectionToken<import('firebase/auth').Auth>}
- */
-export const FIREBASE_AUTH = new InjectionToken('FirebaseAuth');
-const FIREBASE_AUTH_PROVIDER = new FactoryProvider(
+export const FIREBASE_AUTH_PROVIDER = new FactoryProvider(
   FIREBASE_AUTH,
   (firebaseApp) => {
     const auth = getAuth(firebaseApp);
@@ -35,5 +36,3 @@ const FIREBASE_AUTH_PROVIDER = new FactoryProvider(
   },
   [FIREBASE_APP],
 );
-
-ROOT_INJECTOR.register([FIREBASE_APP_PROVIDER, FIREBASE_AUTH_PROVIDER]);

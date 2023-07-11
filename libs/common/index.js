@@ -1,4 +1,13 @@
 /**
+ * @template {Record<any, any>} T
+ * @param {T} value
+ * @returns {Array<keyof T>}
+ */
+export function objectKeys(value) {
+  return Object.keys(value);
+}
+
+/**
  *
  * @template T
  * @param {readonly T[]} array
