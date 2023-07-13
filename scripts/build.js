@@ -1,19 +1,29 @@
 import { readdir } from 'node:fs/promises';
 import { readFile, rm } from 'fs/promises';
-import { copy, outputFile } from 'fs-extra';
+import { copy, outputFile, pathExists } from 'fs-extra';
 import { join } from 'node:path';
 import rootPackageJson from '../package.json' assert { type: 'json' };
 import { build as tsupBuild } from 'tsup';
 import fastGlob from 'fast-glob';
 import { objectKeys } from '../libs/common/index.js';
-
-await rm('dist', { recursive: true, force: true });
+import { watch } from 'chokidar';
+import { spawnAsync } from '../packages/cli/utils.js';
 
 const PACKAGES_PATH = 'packages';
 const DIST_PATH = 'dist';
 const PACKAGE_SCOPE = '@st-api';
 const ROOT_PACKAGE_JSON_DEPENDENCIES = objectKeys(rootPackageJson.dependencies);
 const PACKAGES = await readdir(PACKAGES_PATH);
+const WATCH_MODE = process.argv.includes('--watch');
+
+if (await pathExists('dist/cli')) {
+  await spawnAsync('npm', ['unlink', '-g'], {
+    cwd: join(process.cwd(), 'dist', 'cli'),
+    shell: true,
+  }).catch();
+}
+
+await rm('dist', { recursive: true, force: true });
 
 /**
  *
@@ -26,12 +36,16 @@ async function getDependenciesUsed(packageName) {
    * @type {Array<keyof typeof rootPackageJson['dependencies']>}
    */
   const usedDependencies = [];
+  let allDependencies = [...ROOT_PACKAGE_JSON_DEPENDENCIES];
   // TODO improve this
   for (const file of files) {
     const fileContent = await readFile(file, 'utf-8');
-    for (const dependency of ROOT_PACKAGE_JSON_DEPENDENCIES) {
+    for (const dependency of allDependencies) {
       if (fileContent.includes(`'${dependency}'`)) {
         usedDependencies.push(dependency);
+        allDependencies = allDependencies.filter(
+          (_dependency) => dependency !== _dependency,
+        );
       }
     }
     if (ROOT_PACKAGE_JSON_DEPENDENCIES.length === usedDependencies.length) {
@@ -117,4 +131,33 @@ async function buildPackage(packageName) {
   await Promise.all(promises);
 }
 
-await Promise.all(PACKAGES.map((packageName) => buildPackage(packageName)));
+async function buildPackages() {
+  console.log('Building packages...');
+  await Promise.all(PACKAGES.map((packageName) => buildPackage(packageName)));
+  console.log('Packages build finished');
+}
+
+await buildPackages();
+
+// TODO FIX LINK AND UNLINK OF CLI PACKAGE
+
+if (WATCH_MODE) {
+  const watcher = watch('packages/**/*.js', {
+    ignoreInitial: true,
+  });
+  const events = ['add', 'change', 'unlink'];
+  for (const event of events) {
+    watcher.on(event, async () => {
+      await spawnAsync('npm', ['unlink', '-g'], {
+        cwd: join(process.cwd(), 'dist', 'cli'),
+        shell: true,
+      }).catch();
+      await buildPackages();
+      await spawnAsync('npm', ['link'], {
+        cwd: join(process.cwd(), 'dist', 'cli'),
+        shell: true,
+      });
+    });
+  }
+  console.log('Watching for changes...');
+}

@@ -1,10 +1,25 @@
 #!/usr/bin/env node
 
-import { program } from '@caporal/core';
+import { program } from 'commander';
+import { build } from '../build.js';
+import { z } from 'zod';
 
-program
-  .command('build', 'Build')
-  .option('--check', 'Produce build without any optimizations')
-  .action(({ args }) => {});
+const BUILD_ARGS = z.object({
+  dev: z.boolean().default(false),
+  watch: z.boolean().default(false),
+});
 
-program.run();
+await program
+  .command('build')
+  .description('Build')
+  .option('--dev', 'Produce build without any optimizations')
+  .option('--watch', 'Watch for file changes')
+  .action(async (optionsUnparsed) => {
+    console.log(optionsUnparsed);
+    const options = BUILD_ARGS.parse(optionsUnparsed);
+    await build({
+      ...options,
+      path: process.cwd(), // TODO CHECK IF THIS IS REALLY NECESSARY
+    });
+  })
+  .parseAsync();
