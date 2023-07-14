@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { readFile, rm } from 'fs/promises';
-import { copy, outputFile, pathExists } from 'fs-extra';
+import { copy, outputFile } from 'fs-extra';
 import { join } from 'node:path';
 import rootPackageJson from '../package.json' assert { type: 'json' };
 import { build as tsupBuild } from 'tsup';
@@ -8,6 +8,7 @@ import fastGlob from 'fast-glob';
 import { objectKeys } from '../libs/common/index.js';
 import { watch } from 'chokidar';
 import { spawnAsync } from '../packages/cli/utils.js';
+import { debounceTime, Subject } from 'rxjs';
 
 const PACKAGES_PATH = 'packages';
 const DIST_PATH = 'dist';
@@ -16,14 +17,21 @@ const ROOT_PACKAGE_JSON_DEPENDENCIES = objectKeys(rootPackageJson.dependencies);
 const PACKAGES = await readdir(PACKAGES_PATH);
 const WATCH_MODE = process.argv.includes('--watch');
 
-if (await pathExists('dist/cli')) {
-  await spawnAsync('npm', ['unlink', '-g'], {
-    cwd: join(process.cwd(), 'dist', 'cli'),
-    shell: true,
-  }).catch();
-}
-
 await rm('dist', { recursive: true, force: true });
+
+async function linkCliPackage() {
+  console.log('Linking CLI package...');
+  const pathCli = join(process.cwd(), 'dist', 'cli');
+  await spawnAsync('npm', ['unlink', '-g'], {
+    cwd: pathCli,
+    shell: true,
+  });
+  await spawnAsync('npm', ['link'], {
+    cwd: pathCli,
+    shell: true,
+  });
+  console.log('Link complete');
+}
 
 /**
  *
@@ -139,24 +147,24 @@ async function buildPackages() {
 
 await buildPackages();
 
-// TODO FIX LINK AND UNLINK OF CLI PACKAGE
-
 if (WATCH_MODE) {
+  await linkCliPackage();
+
   const watcher = watch('packages/**/*.js', {
     ignoreInitial: true,
   });
   const events = ['add', 'change', 'unlink'];
+  /**
+   * @type {Subject<undefined>}
+   */
+  const build$ = new Subject();
+  build$.pipe(debounceTime(100)).subscribe(async () => {
+    await buildPackages();
+    await linkCliPackage();
+  });
   for (const event of events) {
     watcher.on(event, async () => {
-      await spawnAsync('npm', ['unlink', '-g'], {
-        cwd: join(process.cwd(), 'dist', 'cli'),
-        shell: true,
-      }).catch();
-      await buildPackages();
-      await spawnAsync('npm', ['link'], {
-        cwd: join(process.cwd(), 'dist', 'cli'),
-        shell: true,
-      });
+      build$.next(undefined);
     });
   }
   console.log('Watching for changes...');

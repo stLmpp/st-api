@@ -15,7 +15,6 @@ await program
   .option('--dev', 'Produce build without any optimizations')
   .option('--watch', 'Watch for file changes')
   .action(async (optionsUnparsed) => {
-    console.log(optionsUnparsed);
     const options = BUILD_ARGS.parse(optionsUnparsed);
     await build({
       ...options,

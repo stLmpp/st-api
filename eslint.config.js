@@ -50,7 +50,7 @@ export default [
         {
           objects: 'always-multiline',
           arrays: 'always-multiline',
-          functions: 'never',
+          functions: 'always-multiline',
           imports: 'always-multiline',
           exports: 'always-multiline',
         },

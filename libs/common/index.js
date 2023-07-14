@@ -24,7 +24,7 @@ export function arrayUniqWith(array, comparator) {
     for (let subIndex = index + 1; subIndex < length; subIndex++) {
       const valueA = array[index];
       const valueB = array[subIndex];
-      if (typeof valueA === 'undefined' || typeof valueB === 'undefined') {
+      if (valueA === undefined || valueB === undefined) {
         continue;
       }
       if (comparator(valueA, valueB)) {
@@ -35,3 +35,5 @@ export function arrayUniqWith(array, comparator) {
   }
   return array.filter((_, index) => !set.has(index));
 }
+
+export * from './schemas.js';
