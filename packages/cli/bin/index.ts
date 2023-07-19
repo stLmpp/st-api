@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import { build } from '../build.js';
 import { z } from 'zod';
+
+import { build } from '../build.js';
 
 const BUILD_ARGS = z.object({
   dev: z.boolean().default(false),

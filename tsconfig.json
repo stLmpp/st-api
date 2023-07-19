@@ -8,8 +8,6 @@
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true,
     "useUnknownInCatchVariables": true,
-    "checkJs": true,
-    "allowJs": true,
     "noImplicitOverride": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,

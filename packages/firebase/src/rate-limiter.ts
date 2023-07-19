@@ -1,7 +1,8 @@
-import { FactoryProvider } from '@stlmpp/di';
 import { CoreEnvironment, RATE_LIMITER } from '@st-api/core';
-import { FIREBASE_ADMIN_FIRESTORE } from './firebase-admin.js';
+import { FactoryProvider } from '@stlmpp/di';
 import { FirebaseFunctionsRateLimiter } from 'firebase-functions-rate-limiter';
+
+import { FIREBASE_ADMIN_FIRESTORE } from './firebase-admin.js';
 
 export const FIREBASE_RATE_LIMITER_PROVIDER = new FactoryProvider(
   RATE_LIMITER,

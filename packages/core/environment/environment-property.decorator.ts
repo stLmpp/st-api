@@ -1,21 +1,21 @@
 import { environmentMetadata } from './environment.metadata.js';
 
-const DEFAULT_PARSER_MAP = new Map()
-  .set(Number, (/** @type {unknown} */ value) => Number(value))
-  .set(Boolean, (/** @type {unknown} */ value) =>
+const DEFAULT_PARSER_MAP: ReadonlyMap<any, (value: unknown) => any> = new Map<
+  any,
+  (value: unknown) => any
+>()
+  .set(Number, Number)
+  .set(Boolean, (value) =>
     typeof value === 'string' ? value === 'true' : !!value,
   );
 
-/**
- * @param {object} options
- * @param {string} options.name
- * @param {boolean} [options.secret]
- * @param {boolean} [options.optional]
- * @param {(value: unknown) => unknown} [options.parser]
- * @param {unknown} [options.default]
- * @returns {(target: any, propertyKey: string) => void}
- */
-export function EnvProp(options) {
+export function EnvironmentProperty(options: {
+  name: string;
+  secret?: boolean;
+  optional?: boolean;
+  parser?: (value: unknown) => unknown;
+  default?: unknown;
+}): (target: any, propertyKey: string) => void {
   return (target, propertyKey) => {
     const name = options.name;
     const parser =

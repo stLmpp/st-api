@@ -1,14 +1,16 @@
-import { readdir } from 'node:fs/promises';
-import { readFile, rm } from 'fs/promises';
-import { copy, outputFile } from 'fs-extra';
+import { readFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import rootPackageJson from '../package.json' assert { type: 'json' };
-import { build as tsupBuild } from 'tsup';
-import fastGlob from 'fast-glob';
-import { objectKeys } from '../libs/common/index.js';
+
 import { watch } from 'chokidar';
-import { spawnAsync } from '../packages/cli/utils.js';
+import fastGlob from 'fast-glob';
+import { copy, outputFile } from 'fs-extra';
 import { debounceTime, Subject } from 'rxjs';
+import { build as tsupBuild, Options } from 'tsup';
+import { PackageJson } from 'type-fest';
+
+import { objectKeys } from '../libs/common/index.js';
+import rootPackageJson from '../package.json' assert { type: 'json' };
+import { spawnAsync } from '../packages/cli/utils.js';
 
 const PACKAGES_PATH = 'packages';
 const DIST_PATH = 'dist';
@@ -16,6 +18,7 @@ const PACKAGE_SCOPE = '@st-api';
 const ROOT_PACKAGE_JSON_DEPENDENCIES = objectKeys(rootPackageJson.dependencies);
 const PACKAGES = await readdir(PACKAGES_PATH);
 const WATCH_MODE = process.argv.includes('--watch');
+const DEV_MODE = process.argv.includes('--dev');
 
 await rm('dist', { recursive: true, force: true });
 
@@ -33,21 +36,17 @@ async function linkCliPackage() {
   console.log('Link complete');
 }
 
-/**
- *
- * @param {string} packageName
- * @returns {Promise<Array<keyof typeof rootPackageJson['dependencies']>>}
- */
-async function getDependenciesUsed(packageName) {
+type RootPackageJsonDependencies = (typeof rootPackageJson)['dependencies'];
+
+async function getDependenciesUsed(
+  packageName: string,
+): Promise<Array<keyof RootPackageJsonDependencies>> {
   const files = await fastGlob(`${PACKAGES_PATH}/${packageName}/**/*.js`);
-  /**
-   * @type {Array<keyof typeof rootPackageJson['dependencies']>}
-   */
-  const usedDependencies = [];
+  const usedDependencies: Array<keyof RootPackageJsonDependencies> = [];
   let allDependencies = [...ROOT_PACKAGE_JSON_DEPENDENCIES];
   // TODO improve this
   for (const file of files) {
-    const fileContent = await readFile(file, 'utf-8');
+    const fileContent = await readFile(file, 'utf8');
     for (const dependency of allDependencies) {
       if (fileContent.includes(`'${dependency}'`)) {
         usedDependencies.push(dependency);
@@ -63,24 +62,18 @@ async function getDependenciesUsed(packageName) {
   return usedDependencies;
 }
 
-/**
- * @param {string} packageName
- * @returns {Promise<void>}
- */
-async function buildPackage(packageName) {
-  const srcPath = join(PACKAGES_PATH, packageName);
-  const distPath = join(DIST_PATH, packageName);
-  const promises = [];
+async function buildPackage(packageName: string): Promise<void> {
+  const sourcePath = join(PACKAGES_PATH, packageName);
+  const distributionPath = join(DIST_PATH, packageName);
+  const promises: Promise<unknown>[] = [];
   const files = ['index.js', 'src'];
   const isCli = packageName === 'cli';
   if (isCli) {
-    promises.push(copy(join(srcPath, 'bin'), join(distPath, 'bin')));
+    promises.push(copy(join(sourcePath, 'bin'), join(distributionPath, 'bin')));
     files.push('bin');
   }
-  /**
-   * @type {import('type-fest').PackageJson}
-   */
-  const packageJson = {
+
+  const packageJson: PackageJson = {
     name: `${PACKAGE_SCOPE}/${packageName}`,
     author: rootPackageJson.author,
     license: rootPackageJson.license,
@@ -110,17 +103,14 @@ async function buildPackage(packageName) {
   }
   promises.push(
     outputFile(
-      join(distPath, 'package.json'),
-      JSON.stringify(packageJson, null, 2),
+      join(distributionPath, 'package.json'),
+      JSON.stringify(packageJson, undefined, 2),
     ),
   );
-  /**
-   * @type {import('tsup').Options}
-   */
-  const options = {
+  const options: Options = {
     dts: true,
     bundle: true,
-    outDir: distPath,
+    outDir: distributionPath,
     format: 'esm',
     platform: 'node',
     target: 'esnext',
@@ -129,17 +119,17 @@ async function buildPackage(packageName) {
     name: packageName,
     splitting: false,
     external: dependencies.map(String),
-    minify: true,
+    minify: !DEV_MODE,
   };
-  options.entry = { index: join(srcPath, 'index.js') };
+  options.entry = { index: join(sourcePath, 'index.ts') };
   if (isCli) {
-    options.entry['bin/index'] = join(srcPath, 'bin', 'index.js');
+    options.entry['bin/index'] = join(sourcePath, 'bin', 'index.ts');
   }
   promises.push(tsupBuild(options));
   await Promise.all(promises);
 }
 
-async function buildPackages() {
+async function buildPackages(): Promise<void> {
   console.log('Building packages...');
   await Promise.all(PACKAGES.map((packageName) => buildPackage(packageName)));
   console.log('Packages build finished');
@@ -150,21 +140,18 @@ await buildPackages();
 if (WATCH_MODE) {
   await linkCliPackage();
 
-  const watcher = watch('packages/**/*.js', {
+  const watcher = watch('packages/**/*.ts', {
     ignoreInitial: true,
   });
-  const events = ['add', 'change', 'unlink'];
-  /**
-   * @type {Subject<undefined>}
-   */
-  const build$ = new Subject();
+  const events = ['add', 'change', 'unlink'] as const;
+  const build$ = new Subject<void>();
   build$.pipe(debounceTime(100)).subscribe(async () => {
     await buildPackages();
     await linkCliPackage();
   });
   for (const event of events) {
     watcher.on(event, async () => {
-      build$.next(undefined);
+      build$.next();
     });
   }
   console.log('Watching for changes...');

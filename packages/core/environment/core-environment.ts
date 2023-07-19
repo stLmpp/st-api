@@ -1,14 +1,14 @@
 import { BaseEnvironment } from './base-environment.js';
-import { EnvProp } from './env-prop.decorator.js';
-import { Env } from './env.decorator.js';
+import { EnvironmentProperty } from './environment-property.decorator.js';
+import { Environment } from './environment.decorator.js';
 
-@Env()
+@Environment()
 export class CoreEnvironment extends BaseEnvironment {
-  @EnvProp({ name: 'RATE_LIMITER_MAX_CALLS' })
+  @EnvironmentProperty({ name: 'RATE_LIMITER_MAX_CALLS' })
   rateLimiterMaxCalls = 100;
-  @EnvProp({ name: 'RATE_LIMITER_PERIOD_SECONDS' })
+  @EnvironmentProperty({ name: 'RATE_LIMITER_PERIOD_SECONDS' })
   rateLimiterPeriodSeconds = 10 * 60;
-  // @EnvProp({ TODO LOGGER
+  // @EnvironmentProperty({ TODO LOGGER
   //   name: 'LOGGER_LEVEL',
   //   parser: (value) => {
   //     const logger_level_schema = z.nativeEnum(LogLevel);

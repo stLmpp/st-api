@@ -1,9 +1,9 @@
-import { FIREBASE_APP_PROVIDER, FIREBASE_AUTH_PROVIDER } from './firebase.js';
 import {
   FIREBASE_ADMIN_APP_PROVIDER,
   FIREBASE_ADMIN_AUTH_PROVIDER,
   FIREBASE_ADMIN_FIRESTORE_PROVIDER,
 } from './firebase-admin.js';
+import { FIREBASE_APP_PROVIDER, FIREBASE_AUTH_PROVIDER } from './firebase.js';
 import { FIREBASE_RATE_LIMITER_PROVIDER } from './rate-limiter.js';
 
 export const FIREBASE_PROVIDERS = [

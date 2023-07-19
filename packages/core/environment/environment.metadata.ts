@@ -1,36 +1,26 @@
-/**
- * @typedef {object} EnvPropertyMetadata
- * @property {string} propertyKey
- * @property {string} name
- * @property {boolean} [secret]
- * @property {boolean} [required]
- * @property {(value: unknown) => unknown} [parser]
- * @property {unknown} [default]
- */
+interface EnvironmentPropertyMetadata {
+  propertyKey: string;
+  name: string;
+  secret?: boolean;
+  required?: boolean;
+  parser?: (value: unknown) => unknown;
+  default?: unknown;
+}
 
 export class EnvironmentMetadata {
-  /**
-   * @type {Map<any, Map<string, EnvPropertyMetadata>>}
-   */
-  #store = new Map();
+  #store = new Map<any, Map<string, EnvironmentPropertyMetadata>>();
 
-  /**
-   * @param {any} target
-   * @param {string} key
-   * @param {EnvPropertyMetadata} value
-   * @returns {EnvironmentMetadata}
-   */
-  add(target, key, value) {
+  add(
+    target: any,
+    key: string,
+    value: EnvironmentPropertyMetadata,
+  ): EnvironmentMetadata {
     const map = this.#store.get(target) ?? new Map();
     this.#store.set(target, map.set(key, value));
     return this;
   }
 
-  /**
-   * @param {any} target
-   * @returns {[any, EnvPropertyMetadata][]}
-   */
-  entries(target) {
+  entries(target: any): [any, EnvironmentPropertyMetadata][] {
     const prototype = Object.getPrototypeOf(target);
     const parent_constructor = prototype.constructor;
     const map_target = this.#store.get(target) ?? new Map();
@@ -41,10 +31,7 @@ export class EnvironmentMetadata {
   }
 
   all() {
-    /**
-     * @type {EnvPropertyMetadata[]}
-     */
-    const metadata = [];
+    const metadata: EnvironmentPropertyMetadata[] = [];
     for (const [, value] of this.#store) {
       metadata.push(...value.values());
     }

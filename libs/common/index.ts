@@ -1,24 +1,14 @@
-/**
- * @template {Record<any, any>} T
- * @param {T} value
- * @returns {Array<keyof T>}
- */
-export function objectKeys(value) {
+export function objectKeys<T extends Record<any, any>>(
+  value: T,
+): Array<keyof T> {
   return Object.keys(value);
 }
 
-/**
- *
- * @template T
- * @param {readonly T[]} array
- * @param {(valueA: T, valueB: T) => unknown} comparator
- * @returns {T[]}
- */
-export function arrayUniqWith(array, comparator) {
-  /**
-   * @type {Set<number>}
-   */
-  const set = new Set();
+export function arrayUniqWith<T>(
+  array: readonly T[],
+  comparator: (valueA: T, valueB: T) => unknown,
+): T[] {
+  const set = new Set<number>();
   const length = array.length;
   for (let index = 0; index < length; index++) {
     for (let subIndex = index + 1; subIndex < length; subIndex++) {

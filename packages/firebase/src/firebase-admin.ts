@@ -1,24 +1,15 @@
 import { FactoryProvider, InjectionToken } from '@stlmpp/di';
-import { initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { App, initializeApp } from 'firebase-admin/app';
+import { getAuth, Auth } from 'firebase-admin/auth';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
-/**
- * @type {InjectionToken<import('firebase-admin/app').App>}
- */
-export const FIREBASE_ADMIN_APP = new InjectionToken('FirebaseAdminApp');
-
-/**
- * @type {InjectionToken<import('firebase-admin/firestore').Firestore>}
- */
-export const FIREBASE_ADMIN_FIRESTORE = new InjectionToken(
+export const FIREBASE_ADMIN_APP = new InjectionToken<App>('FirebaseAdminApp');
+export const FIREBASE_ADMIN_FIRESTORE = new InjectionToken<Firestore>(
   'FirebaseAdminFirestore',
 );
-
-/**
- * @type {InjectionToken<import('firebase-admin/auth').Auth>}
- */
-export const FIREBASE_ADMIN_AUTH = new InjectionToken('FirebaseAdminAuth');
+export const FIREBASE_ADMIN_AUTH = new InjectionToken<Auth>(
+  'FirebaseAdminAuth',
+);
 
 export const FIREBASE_ADMIN_APP_PROVIDER = new FactoryProvider(
   FIREBASE_ADMIN_APP,
