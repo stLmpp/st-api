@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { watch } from 'chokidar';
 import fastGlob from 'fast-glob';
 import { copy, outputFile } from 'fs-extra';
-import { debounceTime, Subject } from 'rxjs';
+import { concatMap, debounceTime, map, Subject } from 'rxjs';
 import { build as tsupBuild, Options } from 'tsup';
 import { PackageJson } from 'type-fest';
 
@@ -137,6 +137,11 @@ async function buildPackages(): Promise<void> {
 
 await buildPackages();
 
+async function buildPackagesAndLinkCli() {
+  await buildPackages();
+  await linkCliPackage();
+}
+
 if (WATCH_MODE) {
   await linkCliPackage();
 
@@ -145,10 +150,13 @@ if (WATCH_MODE) {
   });
   const events = ['add', 'change', 'unlink'] as const;
   const build$ = new Subject<void>();
-  build$.pipe(debounceTime(100)).subscribe(async () => {
-    await buildPackages();
-    await linkCliPackage();
-  });
+  build$
+    .pipe(
+      debounceTime(100),
+      map(() => buildPackagesAndLinkCli),
+      concatMap((callback) => callback()),
+    )
+    .subscribe();
   for (const event of events) {
     watcher.on(event, async () => {
       build$.next();

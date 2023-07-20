@@ -12,3 +12,7 @@ export function apiAdapter(options: {
 export const RATE_LIMITER = new InjectionToken<
   (request: Request, response: Response) => Promise<boolean>
 >('RateLimiter');
+
+export const HTTP_REQUEST_HANDLER = new InjectionToken<
+  (request: Request, response: Response) => Promise<void>
+>('HttpRequestHandler');

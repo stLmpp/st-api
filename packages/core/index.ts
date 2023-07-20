@@ -6,5 +6,9 @@ export { getRequiredEnvironmentVariables } from './environment/environment.metad
 export { Environment } from './environment/environment.decorator.js';
 export { EnvironmentProperty } from './environment/environment-property.decorator.js';
 export { httpConfig } from './http/http-config.js';
-export * from './api-adapter.js';
+export {
+  HTTP_REQUEST_HANDLER,
+  RATE_LIMITER,
+  apiAdapter,
+} from './api-adapter.js';
 export { APP_NAME } from './tokens.js';

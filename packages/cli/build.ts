@@ -1,113 +1,42 @@
-import { writeFile } from 'node:fs/promises';
-import { basename, extname, join } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
 
-import { METHOD_SCHEMA } from '@libs/common';
-import fastGlob from 'fast-glob';
 import { pathExists } from 'fs-extra/esm';
+import { PackageJson, SetRequired } from 'type-fest';
 
-import { ROUTES_GLOB } from './constants.js';
+import { getRoutes, Route } from './get-routes.js';
 import { spawnAsync } from './utils.js';
-
-async function getRoutes(): Promise<
-  {
-    path: string;
-    endPoint: string;
-    metaDtsPath: string;
-    filename: string;
-    dtsPath: string;
-    method: string;
-  }[]
-> {
-  const routes = await fastGlob(ROUTES_GLOB);
-  return routes
-    .map((path) => {
-      const filename = basename(path);
-      const extension = extname(path);
-      const method = METHOD_SCHEMA.parse(
-        filename.replace(new RegExp(`\\${extension}$`), ''),
-      );
-      const parts = path.replace(/^src\/routes/, '').split('/');
-      parts.pop();
-      const endPoint =
-        parts
-          .map((part) => part.replace(/^\[/, ':').replace(/]$/, ''))
-          .join('/') + '/';
-      const dtsPath = join('.st-api', 'types', path).replace(
-        new RegExp(`\\${extension}$`),
-        '.d.ts',
-      );
-      const metaDtsPath = dtsPath.replace(
-        new RegExp(`${method}.d.ts$`),
-        `$${method}.d.ts`,
-      );
-      return {
-        path,
-        filename,
-        method,
-        endPoint,
-        dtsPath,
-        metaDtsPath,
-      };
-    })
-    .sort(({ endPoint: endPointA }, { endPoint: endPointB }) => {
-      const endPointASplit = endPointB.split('/');
-      const endPointBSplit = endPointA.split('/');
-      const diff = endPointASplit.length - endPointBSplit.length;
-      if (diff) {
-        // If there's multiple segments in the
-        // end-point, it must come first
-        return diff;
-      }
-      // Just order the rest in DESC order, to put the dynamic
-      // path params last
-      return endPointB.localeCompare(endPointA);
-    });
-}
+import { getPackageJson } from './get-package-json.js';
 
 interface BuilderOptions {
-  path: string;
   dev?: boolean;
-  watch?: boolean;
+  skipDtsFilesCreation?: boolean;
+  entryPointBuilder: (name: string) => string;
 }
 
-export async function build(options: BuilderOptions): Promise<void> {
-  return new Builder({ ...options, routes: await getRoutes() }).build();
+interface BuilderOptionsInternal extends BuilderOptions {
+  routes: Route[];
+  packageJson: SetRequired<PackageJson, 'name'>;
 }
 
 class Builder {
-  constructor(options: {
-    routes: {
-      path: string;
-      endPoint: string;
-      metaDtsPath: string;
-      filename: string;
-      dtsPath: string;
-      method: string;
-    }[];
-    path: string;
-    dev?: boolean | undefined;
-    watch?: boolean | undefined;
-  }) {
+  constructor(options: BuilderOptionsInternal) {
     this.#options = options;
   }
 
-  #options: BuilderOptions & {
-    routes: Awaited<ReturnType<typeof getRoutes>>;
-  };
+  #options: BuilderOptionsInternal;
 
-  async createTscFilesSync() {
+  private async createTscFilesSync(): Promise<void> {
     await spawnAsync('npm', ['run', 'build-types'], {
       shell: true,
     }).catch();
   }
 
-  async createMetaDtsFiles() {
+  private async createMetaDtsFiles(): Promise<void> {
     await Promise.all(
       this.#options.routes.map(async (route) => {
         if (await pathExists(route.metaDtsPath)) {
           return;
         }
-        console.log(route);
         await writeFile(
           route.metaDtsPath,
           `import http from './${route.method}.js';
@@ -126,14 +55,30 @@ export type HttpResponse = CoreResponse<HttpHandler>;`,
     );
   }
 
+  private async getMainFile(): Promise<string> {
+    return `
+${this.#options.entryPointBuilder(this.#options.packageJson.name)}
+    `;
+  }
+
   async build() {
-    if (!this.#options.watch && this.#options.dev) {
+    if (!this.#options.skipDtsFilesCreation && this.#options.dev) {
       console.log('Creating TSC files');
       await this.createTscFilesSync();
-    }
-    if (!this.#options.watch && this.#options.dev) {
       console.log('Creating meta DTS files');
       await this.createMetaDtsFiles();
     }
   }
+}
+
+export async function build(options: BuilderOptions): Promise<void> {
+  const packageJson = await getPackageJson();
+  if (!packageJson.name) {
+    throw new Error('Property name on package.json is required');
+  }
+  return new Builder({
+    ...options,
+    routes: await getRoutes(),
+    packageJson,
+  }).build();
 }
